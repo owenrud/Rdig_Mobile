@@ -5,6 +5,7 @@ import 'package:main/register.dart';
 import 'dart:convert';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/services.dart';
+import 'package:main/global_variable.dart';
 
 void main() async {
   runApp(const MyApp());
@@ -207,7 +208,7 @@ class _MyHomePageState extends State<MyHomePage> {
                     style: TextStyle(fontSize: 20),
                   ),
                   style: ElevatedButton.styleFrom(
-                    primary: Colors.white,
+                    backgroundColor: Colors.white,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -295,7 +296,7 @@ class _MyHomePageState extends State<MyHomePage> {
   Future<Map<String, dynamic>?> getUserDataByGoogleId(
       String googleIdToken) async {
     try {
-      final Uri apiUrl = Uri.parse('http://192.168.0.103:8000/api/user/GID');
+      final Uri apiUrl = Uri.parse('http://$ipAddress:8000/api/user/GID');
       final response = await http.post(
         apiUrl,
         body: {'googleId': googleIdToken},
@@ -320,7 +321,7 @@ class _MyHomePageState extends State<MyHomePage> {
     String email = emailController.text;
     String password = passwordController.text;
 
-    final url = Uri.parse('http://192.168.0.103:8000/api/user/login');
+    final url = Uri.parse('http://$ipAddress:8000/api/user/login');
 
     final response = await http.post(
       url,

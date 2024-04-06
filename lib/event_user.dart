@@ -6,6 +6,7 @@ import 'package:main/qr_code.dart';
 
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
+import 'package:main/global_variable.dart';
 
 class UserEventPage extends StatefulWidget {
   final int idEvent;
@@ -42,7 +43,7 @@ class _UserEventPageState extends State<UserEventPage> {
 
   Future<Map<String, dynamic>> fetchUserData(String userId) async {
     final Uri apiUrl =
-        Uri.parse('http://192.168.0.103:8000/api/peserta/show/user');
+        Uri.parse('http://$ipAddress:8000/api/peserta/show/user');
 
     try {
       final http.Response response = await http.post(
@@ -97,7 +98,7 @@ class _UserEventPageState extends State<UserEventPage> {
   Future<Map<String, dynamic>> _fetchEvent() async {
     try {
       final response = await http.post(
-        Uri.parse("http://192.168.0.103:8000/api/event/show"),
+        Uri.parse("http://$ipAddress:8000/api/event/show"),
         body: {'ID_event': widget.idEvent.toString()},
       );
 
@@ -121,7 +122,7 @@ class _UserEventPageState extends State<UserEventPage> {
     try {
       final eventId = (await _event)['ID_event'].toString();
       final response = await http.post(
-        Uri.parse("http://192.168.0.103:8000/api/event/detail/show"),
+        Uri.parse("http://$ipAddress:8000/api/event/detail/show"),
         body: {'ID_event': eventId},
       );
 
@@ -146,7 +147,7 @@ class _UserEventPageState extends State<UserEventPage> {
       final EO_ID = (await _event)['ID_EO'].toString();
 
       final response = await http.post(
-        Uri.parse("http://192.168.0.103:8000/api/profile/show"),
+        Uri.parse("http://$ipAddress:8000/api/profile/show"),
         body: {'id': EO_ID}, // Replace with the actual user ID
       );
 

@@ -3,6 +3,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
+import 'package:main/global_variable.dart';
 
 class DetailEventPage extends StatefulWidget {
   final int idEvent;
@@ -38,7 +39,7 @@ class _EventPageState extends State<DetailEventPage> {
   Future<Map<String, dynamic>> _fetchEvent() async {
     try {
       final response = await http.post(
-        Uri.parse("http://192.168.0.103:8000/api/event/show"),
+        Uri.parse("http://$ipAddress:8000/api/event/show"),
         body: {'ID_event': widget.idEvent.toString()},
       );
 
@@ -62,7 +63,7 @@ class _EventPageState extends State<DetailEventPage> {
     try {
       final eventId = (await _event)['ID_event'].toString();
       final response = await http.post(
-        Uri.parse("http://192.168.0.103:8000/api/event/detail/show"),
+        Uri.parse("http://$ipAddress:8000/api/event/detail/show"),
         body: {'ID_event': eventId},
       );
 
@@ -87,7 +88,7 @@ class _EventPageState extends State<DetailEventPage> {
       final EO_ID = (await _event)['ID_EO'].toString();
 
       final response = await http.post(
-        Uri.parse("http://192.168.0.103:8000/api/profile/show"),
+        Uri.parse("http://$ipAddress:8000/api/profile/show"),
         body: {'id': EO_ID}, // Replace with the actual user ID
       );
 
@@ -95,7 +96,8 @@ class _EventPageState extends State<DetailEventPage> {
         final responseData = json.decode(response.body);
 
         if (responseData['is_success'] == true) {
-          return responseData['data'];
+          final userData = responseData['data'] as Map<String, dynamic>;
+          return userData;
         } else {
           throw Exception("API response indicates failure");
         }
@@ -531,7 +533,7 @@ class _EventPageState extends State<DetailEventPage> {
 
   Future<String> fetchUserEmail(int UserID) async {
     final response = await http.post(
-      Uri.parse('http://192.168.0.103:8000/api/profile/user'),
+      Uri.parse('http://$ipAddress:8000/api/profile/user'),
       body: {
         'id': UserID.toString(),
       },
@@ -563,7 +565,7 @@ class _EventPageState extends State<DetailEventPage> {
 
       // Make the API call
       final response = await http.post(
-        Uri.parse('http://192.168.0.103:8000/api/peserta/save'),
+        Uri.parse('http://$ipAddress:8000/api/peserta/save'),
         body: {
           'ID_event': idEvent.toString(),
           'ID_user': idUser.toString(),

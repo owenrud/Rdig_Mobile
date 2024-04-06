@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-import 'dart:io';
+import 'package:main/global_variable.dart';
 
 class RegisterPage extends StatefulWidget {
   @override
@@ -10,6 +10,8 @@ class RegisterPage extends StatefulWidget {
 
 Future<List<String>>? _provincesFuture;
 Future<List<String>>? _districtsFuture;
+
+// This will give you the local IPv4 address
 
 class _RegisterPageState extends State<RegisterPage> {
   @override
@@ -85,7 +87,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 ElevatedButton(
                   onPressed: _registerUser,
                   style: ElevatedButton.styleFrom(
-                    primary: Colors.purple[700],
+                    backgroundColor: Colors.purple[700],
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(25),
@@ -114,7 +116,7 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       final response = await http
           //.get(Uri.parse("http://192.168.0.105:8000/api/provinsi/all"));
-          .get(Uri.parse("http://192.168.0.103:8000/api/provinsi/all"));
+          .get(Uri.parse("http://$ipAddress:8000/api/provinsi/all"));
 
       if (response.statusCode == 200) {
         Map<String, dynamic> responseData = json.decode(response.body);
@@ -165,7 +167,7 @@ class _RegisterPageState extends State<RegisterPage> {
     try {
       final response = await http.post(
         //Uri.parse("http://192.168.0.106:8000/api/kabupaten/show"),
-        Uri.parse("http://192.168.0.103:8000/api/kabupaten/show"),
+        Uri.parse("http://$ipAddress:8000/api/kabupaten/show"),
         body: {'id_provinsi': idProvinsi.toString()},
       );
 
@@ -339,7 +341,7 @@ class _RegisterPageState extends State<RegisterPage> {
       try {
         // Make the registration API call
         final response = await http.post(
-          Uri.parse('http://192.168.0.103:8000/api/register-account'),
+          Uri.parse('http://$ipAddress:8000/api/register-account'),
           body: {
             'email': _emailController.text,
             'password': _passwordController.text,

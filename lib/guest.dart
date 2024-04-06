@@ -5,6 +5,7 @@ import 'dart:convert';
 
 import 'package:main/event_user.dart';
 import 'package:main/main.dart';
+import 'package:main/global_variable.dart';
 
 class GuestPage extends StatefulWidget {
   final String userId;
@@ -17,8 +18,9 @@ class GuestPage extends StatefulWidget {
 
 class _GuestPageState extends State<GuestPage> {
   late Future<Map<String, dynamic>> profileData;
-  Future<List<Map<String, dynamic>>> eventList =
-      Future.value([]); // Use an initial value
+  // Future<List<Map<String, dynamic>>> eventList =
+  //     Future.value([]); // Use an initial value
+  late Future<List<Map<String, dynamic>>> eventList;
 
   @override
   void initState() {
@@ -34,27 +36,41 @@ class _GuestPageState extends State<GuestPage> {
       print('Fetching event list for user ID: $userId');
 
       final response1 = await http.post(
-        Uri.parse('http://192.168.0.103:8000/api/peserta/show/user'),
+        Uri.parse('http://$ipAddress:8000/api/peserta/show/user'),
         body: {'ID_user': userId},
       );
 
       if (response1.statusCode == 200) {
         final pesertaData = json.decode(response1.body);
-        final List<int> eventIdList = pesertaData['data']
-            .map<int>((peserta) => peserta['ID_event'] as int)
-            .toList();
 
-        print('Event ID List: $eventIdList');
-        // Fetch event details using the second API
-        final List<Future<Map<String, dynamic>>> eventDetailsFutures =
-            eventIdList.map((eventId) => fetchEventDetails(eventId)).toList();
+        if (pesertaData['is_success'] == true &&
+            pesertaData.containsKey('data')) {
+          final List<int> eventIdList = pesertaData['data']
+              .map<int>((peserta) => peserta['ID_event'] as int)
+              .toList();
 
-        // Wait for all futures to complete
-        final List<Map<String, dynamic>> eventDetails =
-            await Future.wait(eventDetailsFutures);
-        print('Event Details: $eventDetails');
+          print('Event ID List: $eventIdList');
 
-        return eventDetails;
+          // Fetch event details using the second API
+          final List<Future<List<Map<String, dynamic>>>> eventDetailsFutures =
+              eventIdList.map((eventId) => fetchEventDetails(eventId)).toList();
+
+// Wait for all futures to complete
+          final List<List<Map<String, dynamic>>> eventDetails =
+              await Future.wait(
+            eventDetailsFutures,
+          );
+
+// Flatten the list of lists
+          final List<Map<String, dynamic>> flattenedEventDetails =
+              eventDetails.expand((element) => element).toList();
+
+          print('Event Details: $flattenedEventDetails');
+
+          return flattenedEventDetails;
+        } else {
+          throw Exception('Invalid event list response format');
+        }
       } else {
         throw Exception(
             'Failed to fetch event list. Error code: ${response1.statusCode}');
@@ -64,17 +80,20 @@ class _GuestPageState extends State<GuestPage> {
     }
   }
 
-  Future<Map<String, dynamic>> fetchEventDetails(int eventId) async {
+  Future<List<Map<String, dynamic>>> fetchEventDetails(int eventId) async {
     try {
       // Fetch event details using the third API
       final response2 = await http.post(
-        Uri.parse('http://192.168.0.103:8000/api/event/show'),
+        Uri.parse('http://$ipAddress:8000/api/event/show'),
         body: {'ID_event': eventId.toString()},
       );
 
       if (response2.statusCode == 200) {
         final eventData = json.decode(response2.body);
-        return eventData['data'];
+        print(
+            'Event Details Response for ID $eventId: $eventData'); // Print the API response
+
+        return List<Map<String, dynamic>>.from(eventData['data']);
       } else {
         throw Exception(
             'Failed to fetch event details. Error code: ${response2.statusCode}');
@@ -295,7 +314,7 @@ class _GuestPageState extends State<GuestPage> {
                   fetchDataAndNavigate();
                 },
                 style: ElevatedButton.styleFrom(
-                  primary: Colors.white,
+                  backgroundColor: Colors.white,
                   padding: EdgeInsets.all(16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(15),
@@ -378,7 +397,7 @@ class _GuestPageState extends State<GuestPage> {
 }
 
 Future<Map<String, dynamic>> fetchProfileData(String userId) async {
-  final url = Uri.parse('http://192.168.0.103:8000/api/profile/show');
+  final url = Uri.parse('http://$ipAddress:8000/api/profile/show');
   try {
     final response = await http.post(
       url,

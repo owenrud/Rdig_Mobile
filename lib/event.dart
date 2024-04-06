@@ -6,6 +6,7 @@ import 'package:main/detail_event.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:main/global_variable.dart';
 
 class EventPage extends StatefulWidget {
   final Map<String, dynamic> profileData;
@@ -50,7 +51,7 @@ class _EventPageState extends State<EventPage> {
       try {
         // Make API request to search endpoint using POST
         final response = await http.post(
-          Uri.parse('http://192.168.0.103:8000/api/event/search'),
+          Uri.parse('http://$ipAddress:8000/api/event/search'),
           body: {'search': searchTerm},
         );
 
@@ -94,7 +95,7 @@ class _EventPageState extends State<EventPage> {
 
   Future<void> _fetchEvents() async {
     final response = await http
-        .get(Uri.parse('http://192.168.0.103:8000/api/event/mobile/test'));
+        .get(Uri.parse('http://$ipAddress:8000/api/event/mobile/all'));
 
     if (response.statusCode == 200) {
       final Map<String, dynamic> data = json.decode(response.body);
@@ -112,7 +113,7 @@ class _EventPageState extends State<EventPage> {
 
   Future<List<String>> _fetchCategoryNames() async {
     final response = await http
-        .get(Uri.parse('http://192.168.0.103:8000/api/event/kategori/all'));
+        .get(Uri.parse('http://$ipAddress:8000/api/event/kategori/all'));
 
     if (response.statusCode == 200) {
       final List<dynamic> data = json.decode(response.body);
@@ -253,7 +254,7 @@ class _EventPageState extends State<EventPage> {
             ElevatedButton(
               onPressed: () {},
               style: ElevatedButton.styleFrom(
-                primary: Colors.deepPurple,
+                backgroundColor: Colors.deepPurple,
               ),
               child: Text('Apply', style: TextStyle(color: Colors.white)),
             ),
