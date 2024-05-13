@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:main/otpScreen.dart';
 import 'dart:convert';
 import 'package:main/global_variable.dart';
 
@@ -34,6 +35,7 @@ class _RegisterPageState extends State<RegisterPage> {
   List<String> provinces = [];
   String selectedProvince = '';
   Map<String, int> provinceIdMap = {};
+  Map<String, int> districtIdMap = {};
 
   List<String> districts = [];
   String selectedDistrict = '';
@@ -166,16 +168,23 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<List<String>> _fetchDistricts(int idProvinsi) async {
     try {
       final response = await http.post(
-        //Uri.parse("http://192.168.0.106:8000/api/kabupaten/show"),
         Uri.parse("http://$ipAddress:8000/api/kabupaten/show"),
         body: {'id_provinsi': idProvinsi.toString()},
       );
 
+      print("response district: ${response.body}");
       if (response.statusCode == 200) {
         Map<String, dynamic> responseData = json.decode(response.body);
 
         if (responseData['is_success'] == true) {
           List<dynamic> districtsData = responseData['data'];
+
+          // Map district names to their IDs
+          districtsData.forEach((district) {
+            int id = district['id'];
+            String name = district['nama'];
+            districtIdMap[name] = id;
+          });
 
           Set<String> uniqueDistrictNames = districtsData
               .where((item) => (item['nama'] as String?)?.isNotEmpty == true)
@@ -300,9 +309,10 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   void _handleProvinceChange(String? value) async {
+    print("Selected Province: $value");
     if (value != null) {
       int idProvinsi = provinceIdMap[value] ?? 0;
-
+      print("ID Provinsi:${idProvinsi}");
       // Check if idProvinsi is 0, which means it's not found in the map
       if (idProvinsi != 0) {
         // Call _fetchDistricts and update _districtsFuture
@@ -314,8 +324,8 @@ class _RegisterPageState extends State<RegisterPage> {
             _districtsFuture = Future.value(districts);
             selectedProvince = value;
             selectedDistrict = districts.isNotEmpty ? districts[0] : '';
-            _provinceController.text =
-                value ?? ""; // Add this line to update the controller
+            _provinceController.text = idProvinsi.toString();
+            // Add this line to update the controller
           });
         } catch (error) {
           print("Error during district fetching: $error");
@@ -328,11 +338,26 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
-  void _handleDistrictChange(String? value) {
-    setState(() {
-      selectedDistrict = value ?? "";
-      _districtController.text = value ?? "";
-    });
+  void _handleDistrictChange(String? value) async {
+    print("Selected District: $value"); // Log the selected district name
+
+    if (value != null) {
+      // Find the district ID based on its name in the fetched data
+      int? districtId = districtIdMap[value];
+
+      if (districtId != null) {
+        // If the district ID is found, set it to the controller
+        _districtController.text = districtId.toString();
+        setState(() {
+          selectedDistrict = value;
+        });
+        print(
+            "District ID: $districtId"); // Log the ID of the selected district
+      } else {
+        // Handle the case where the district ID is not found
+        print("District ID not found for $value");
+      }
+    }
   }
 
   void _registerUser() async {
@@ -346,7 +371,7 @@ class _RegisterPageState extends State<RegisterPage> {
             'email': _emailController.text,
             'password': _passwordController.text,
             'role': 'user', // Set the role as needed
-            'verify_email': '1', // You may adjust this as needed
+            'verify_email': '0', // You may adjust this as needed
             'full_name': _fullNameController.text,
             'no_telp': _phoneNumberController.text,
             'alamat': _addressController.text,
@@ -361,7 +386,13 @@ class _RegisterPageState extends State<RegisterPage> {
           // You can handle the success response here
           print('Registration successful');
           //print(response.body);
-          Navigator.pop(context);
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (context) => OTPScreen(
+                      email: _emailController.text,
+                    )),
+          );
         } else {
           // Registration failed
           // You can handle the failure response here
@@ -383,9 +414,9 @@ class _RegisterPageState extends State<RegisterPage> {
     print('Password: ${_passwordController.text}');
     print('Full Name: ${_fullNameController.text}');
     print('Phone Number: ${_phoneNumberController.text}');
-    print('Address: ${_addressController.text}');
+    print('Address: ${_addressController.text}');*/
     print('Province: ${_provinceController.text}');
-    print('District: ${_districtController.text}');*/
+    print('District: ${_districtController.text}');
     if (_emailController.text.isEmpty ||
         _passwordController.text.isEmpty ||
         _fullNameController.text.isEmpty ||

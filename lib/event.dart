@@ -7,9 +7,11 @@ import 'package:provider/provider.dart';
 import 'dart:async';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:main/global_variable.dart';
+import 'package:dio/dio.dart';
 
 class EventPage extends StatefulWidget {
   final Map<String, dynamic> profileData;
+
   const EventPage({required this.profileData, Key? key}) : super(key: key);
 
   @override
@@ -17,15 +19,38 @@ class EventPage extends StatefulWidget {
 }
 
 class _EventPageState extends State<EventPage> {
+  ScrollController _scrollController = ScrollController();
   Timer? _debounce;
   List<Map<String, dynamic>> events = [];
   List<String> selectedCategories = [];
   TextEditingController searchController = TextEditingController();
+  int currentPage = 1;
+  int lastPage = 1; // Initially set to 1
+  bool isLoading = false;
+
+  final Dio dio = Dio(BaseOptions(
+    baseUrl: 'http://$ipAddress:8000/api/',
+    connectTimeout: Duration(seconds: 5), //5 seconds
+    receiveTimeout: Duration(seconds: 5), //5 seconds
+  ));
 
   @override
   void initState() {
     super.initState();
     _fetchEvents();
+    _scrollController.addListener(() {
+      if (_scrollController.position.pixels ==
+          _scrollController.position.maxScrollExtent) {
+        _loadMoreEvents();
+      }
+    });
+  }
+
+  void _loadMoreEvents() {
+    if (currentPage < lastPage) {
+      currentPage++;
+      _fetchEvents();
+    }
   }
 
   @override
@@ -44,84 +69,82 @@ class _EventPageState extends State<EventPage> {
   }
 
   Future<void> _searchEvents(String searchTerm) async {
-    const int maxRetries = 20;
-    int retryCount = 0;
+    // Reset events list
+    setState(() {
+      events = [];
+    });
 
-    while (retryCount < maxRetries) {
-      try {
-        // Make API request to search endpoint using POST
-        final response = await http.post(
-          Uri.parse('http://$ipAddress:8000/api/event/search'),
-          body: {'search': searchTerm},
-        );
+    try {
+      final response = await http.post(
+        Uri.parse('http://$ipAddress:8000/api/event/search'),
+        body: {'search': searchTerm},
+      );
 
-        //print('Search Response Status Code: ${response.statusCode}');
-        // print('Search Response Body: ${response.body}');
-
-        if (response.statusCode == 200) {
-          final Map<String, dynamic> data = json.decode(response.body);
-          if (data['is_success'] == true && data.containsKey('data')) {
-            setState(() {
-              events = List<Map<String, dynamic>>.from(data['data']);
-            });
-          } else {
-            throw Exception('Invalid search response format');
-          }
-          return; // Successful response, exit the retry loop
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        if (data['is_success'] == true && data.containsKey('data')) {
+          setState(() {
+            events = List<Map<String, dynamic>>.from(data['data']);
+          });
         } else {
-          throw Exception('Failed to fetch search results');
+          throw Exception('Invalid search response format');
         }
-      } catch (e) {
-        //print('Error during search: $e');
-        retryCount++;
-        // print("Attempts:${retryCount}");
-        // print('Retrying in 5 Seconds...');
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              'Searching Error Because, Too Many Requests to Server,Now Retrying ${retryCount} of ${maxRetries}',
-              style: TextStyle(color: Colors.white),
-            ),
-            backgroundColor: Colors.deepPurple,
-          ),
-        );
-        await Future.delayed(const Duration(seconds: 5));
+      } else {
+        throw Exception('Failed to fetch search results');
       }
+    } catch (e) {
+      print('Error during search: $e');
+      showToast('Error: Failed to fetch search results');
     }
-
-    // Max retries reached, throw an exception
-    throw Exception('Failed to fetch search results after multiple attempts');
   }
 
   Future<void> _fetchEvents() async {
-    final response = await http
-        .get(Uri.parse('http://$ipAddress:8000/api/event/mobile/all'));
-
-    if (response.statusCode == 200) {
-      final Map<String, dynamic> data = json.decode(response.body);
-      //print('Response Body: ${response.body}');
-
-      if (data['is_success'] == true) {
-        final List<dynamic> eventData = data['data'];
-        setState(() {
-          events = eventData.cast<Map<String, dynamic>>().toList();
-          //print('Fetched events: $events'); // Add this line for debugging
-        });
+    try {
+      final response = await http.get(
+        Uri.parse(
+            'http://$ipAddress:8000/api/event/mobile/all?page=$currentPage'),
+      );
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        if (data['is_success'] == true) {
+          setState(() {
+            events
+                .addAll(List<Map<String, dynamic>>.from(data['data']['data']));
+          });
+          currentPage++;
+        }
+      } else {
+        print('Failed to fetch events');
       }
+    } catch (e) {
+      print('Error fetching events: $e');
+      showToast('Error: Failed to fetch events');
     }
   }
 
   Future<List<String>> _fetchCategoryNames() async {
-    final response = await http
-        .get(Uri.parse('http://$ipAddress:8000/api/event/kategori/all'));
+    try {
+      final response = await http.get(
+        Uri.parse('http://$ipAddress:8000/api/event/kategori/all'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+        },
+      );
 
-    if (response.statusCode == 200) {
-      final List<dynamic> data = json.decode(response.body);
-      List<String> categoryNames =
-          data.map((category) => category['nama_kategori'].toString()).toList();
-      return categoryNames;
-    } else {
-      throw Exception('Failed to fetch category names');
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        List<String> categoryNames = data
+            .map((category) => category['nama_kategori'].toString())
+            .toList();
+        return categoryNames;
+      } else {
+        throw Exception('Failed to fetch category names');
+      }
+    } catch (e) {
+      print('Error fetching category names: $e');
+      showToast('Error: Failed to fetch category names');
+      return [];
     }
   }
 
@@ -173,7 +196,6 @@ class _EventPageState extends State<EventPage> {
                 children: [
                   Expanded(child: _buildSearchBar()),
                   SizedBox(width: 8),
-                  _buildFilterButton(context),
                 ],
               ),
             ),
@@ -207,78 +229,91 @@ class _EventPageState extends State<EventPage> {
     );
   }
 
-  Widget _buildFilterButton(BuildContext context) {
-    return GestureDetector(
-      onTap: () async {
-        List<String> allCategoryNames = await _fetchCategoryNames();
-        _showFilterDialog(context, allCategoryNames);
-      },
-      child: CircleAvatar(
-        backgroundColor: Colors.purple[700],
-        child: Icon(
-          Icons.filter_list,
-          color: Colors.white,
-        ),
-      ),
-    );
-  }
+  // Widget _buildFilterButton(BuildContext context) {
+  //   return GestureDetector(
+  //     onTap: () async {
+  //       List<String> allCategoryNames = await _fetchCategoryNames();
+  //       _showFilterDialog(context, allCategoryNames);
+  //     },
+  //     child: CircleAvatar(
+  //       backgroundColor: Colors.purple[700],
+  //       child: Icon(
+  //         Icons.filter_list,
+  //         color: Colors.white,
+  //       ),
+  //     ),
+  //   );
+  // }
 
-  void _showFilterDialog(BuildContext context, List<String> allCategoryNames) {
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Filter Categories'),
-          content: SingleChildScrollView(
-            child: Column(
-              children: allCategoryNames.map((category) {
-                return CheckboxListTile(
-                  title: Text(category),
-                  value: selectedCategories.contains(category),
-                  onChanged: (value) {
-                    setState(() {
-                      if (value != null) {
-                        if (value) {
-                          selectedCategories.add(category);
-                        } else {
-                          selectedCategories.remove(category);
-                        }
-                      }
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-          actions: [
-            ElevatedButton(
-              onPressed: () {},
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-              ),
-              child: Text('Apply', style: TextStyle(color: Colors.white)),
-            ),
-          ],
-        );
-      },
-    );
-  }
+  // void _showFilterDialog(BuildContext context, List<String> allCategoryNames) {
+  //   showDialog(
+  //     context: context,
+  //     builder: (BuildContext context) {
+  //       return AlertDialog(
+  //         title: Text('Filter Categories'),
+  //         content: SingleChildScrollView(
+  //           child: Column(
+  //             children: allCategoryNames.map((category) {
+  //               return CheckboxListTile(
+  //                 title: Text(category),
+  //                 value: selectedCategories.contains(category),
+  //                 onChanged: (value) {
+  //                   setState(() {
+  //                     if (value != null) {
+  //                       if (value) {
+  //                         selectedCategories.add(category);
+  //                       } else {
+  //                         selectedCategories.remove(category);
+  //                       }
+  //                     }
+  //                   });
+  //                 },
+  //               );
+  //             }).toList(),
+  //           ),
+  //         ),
+  //         actions: [
+  //           ElevatedButton(
+  //             onPressed: () {
+  //               // Apply filter logic here
+  //               Navigator.pop(context);
+  //             },
+  //             style: ElevatedButton.styleFrom(
+  //               backgroundColor: Colors.deepPurple,
+  //             ),
+  //             child: Text('Apply', style: TextStyle(color: Colors.white)),
+  //           ),
+  //         ],
+  //       );
+  //     },
+  //   );
+  // }
 
   Widget _buildEventList() {
     // Check if there is an active search
     bool isSearching = searchController.text.trim().isNotEmpty;
 
+    // Apply category filter if any category is selected
+    List<Map<String, dynamic>> filteredEvents = [];
+    if (selectedCategories.isNotEmpty) {
+      filteredEvents = events.where((event) {
+        return selectedCategories.contains(event['kategori']);
+      }).toList();
+    } else {
+      filteredEvents = events;
+    }
+
     if (isSearching) {
       // Display search results
-      if (events.isEmpty) {
+      if (filteredEvents.isEmpty) {
         return Center(child: Text("No matching events"));
       } else {
         return Expanded(
           child: ListView.builder(
             physics: AlwaysScrollableScrollPhysics(),
-            itemCount: events.length,
+            itemCount: filteredEvents.length,
             itemBuilder: (context, index) {
-              Map<String, dynamic> event = events[index];
+              Map<String, dynamic> event = filteredEvents[index];
               return _buildEventCard(event);
             },
           ),
@@ -286,26 +321,15 @@ class _EventPageState extends State<EventPage> {
       }
     } else {
       // Display the initial event list
-      return FutureBuilder<void>(
-        future: _fetchEvents(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          } else if (snapshot.hasError) {
-            return Center(child: Text("Error: ${snapshot.error}"));
-          } else {
-            return Expanded(
-              child: ListView.builder(
-                physics: AlwaysScrollableScrollPhysics(),
-                itemCount: events.length,
-                itemBuilder: (context, index) {
-                  Map<String, dynamic> event = events[index];
-                  return _buildEventCard(event);
-                },
-              ),
-            );
-          }
-        },
+      return Expanded(
+        child: ListView.builder(
+          physics: AlwaysScrollableScrollPhysics(),
+          itemCount: filteredEvents.length,
+          itemBuilder: (context, index) {
+            Map<String, dynamic> event = filteredEvents[index];
+            return _buildEventCard(event);
+          },
+        ),
       );
     }
   }
@@ -315,12 +339,11 @@ class _EventPageState extends State<EventPage> {
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: GestureDetector(
         onTap: () {
-          int idEvent = event['id'];
           Navigator.push(
             context,
             MaterialPageRoute(
               builder: (context) => DetailEventPage(
-                idEvent: idEvent,
+                idEvent: event['id'],
                 profileData: widget.profileData,
               ),
             ),

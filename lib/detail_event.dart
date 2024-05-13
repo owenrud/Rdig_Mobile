@@ -18,12 +18,11 @@ class DetailEventPage extends StatefulWidget {
 }
 
 class _EventPageState extends State<DetailEventPage> {
-  late Future<Map<String, dynamic>> _eventDetails = Future.value({});
+  //late Future<Map<String, dynamic>> _eventDetails = Future.value({});
   late Future<Map<String, dynamic>> _event = Future.value({});
   late Future<Map<String, dynamic>> _userProfile = Future.value({});
   final _mapController = MapController(
-      initPosition: GeoPoint(
-          latitude: -6.175398530482024, longitude: 106.82715682783265));
+      initPosition: GeoPoint(latitude: -7.77016, longitude: 110.379));
 // San Francisco coordinates
   int UserID = 0;
   @override
@@ -31,7 +30,7 @@ class _EventPageState extends State<DetailEventPage> {
     super.initState();
     UserID = widget.profileData['ID_User'];
     _event = _fetchEvent();
-    _eventDetails = _fetchEventDetails();
+    //_eventDetails = _fetchEventDetails();
     _userProfile = _fetchUserProfile();
     print(widget.profileData);
   }
@@ -47,7 +46,18 @@ class _EventPageState extends State<DetailEventPage> {
         final responseData = json.decode(response.body);
 
         if (responseData['is_success'] == true) {
-          return responseData['data'];
+          final event = responseData['data'][0];
+
+          // Format start and end dates
+          final startDate =
+              DateFormat("dd MMMM yyyy").format(DateTime.parse(event['start']));
+          final endDate =
+              DateFormat("dd MMMM yyyy").format(DateTime.parse(event['end']));
+
+          event['start'] = startDate;
+          event['end'] = endDate;
+
+          return event;
         } else {
           throw Exception("API response indicates failure");
         }
@@ -59,29 +69,34 @@ class _EventPageState extends State<DetailEventPage> {
     }
   }
 
-  Future<Map<String, dynamic>> _fetchEventDetails() async {
-    try {
-      final eventId = (await _event)['ID_event'].toString();
-      final response = await http.post(
-        Uri.parse("http://$ipAddress:8000/api/event/detail/show"),
-        body: {'ID_event': eventId},
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-
-        if (responseData['is_success'] == true) {
-          return responseData['data'];
-        } else {
-          throw Exception("API response indicates failure");
-        }
-      } else {
-        throw Exception("Failed to load event details");
-      }
-    } catch (error) {
-      throw Exception("Error during event details fetching: $error");
-    }
+  void _updateMapPosition(double latitude, double longitude) {
+    final updatedPosition = GeoPoint(latitude: latitude, longitude: longitude);
+    _mapController.goToLocation(updatedPosition);
   }
+
+  // Future<Map<String, dynamic>> _fetchEventDetails() async {
+  //   try {
+  //     final eventId = (await _event)['ID_event'].toString();
+  //     final response = await http.post(
+  //       Uri.parse("http://$ipAddress:8000/api/event/detail/show"),
+  //       body: {'ID_event': eventId},
+  //     );
+
+  //     if (response.statusCode == 200) {
+  //       final responseData = json.decode(response.body);
+
+  //       if (responseData['is_success'] == true) {
+  //         return responseData['data'];
+  //       } else {
+  //         throw Exception("API response indicates failure");
+  //       }
+  //     } else {
+  //       throw Exception("Failed to load event details");
+  //     }
+  //   } catch (error) {
+  //     throw Exception("Error during event details fetching: $error");
+  //   }
+  // }
 
   Future<Map<String, dynamic>> _fetchUserProfile() async {
     try {
@@ -240,13 +255,32 @@ class _EventPageState extends State<DetailEventPage> {
                             size: 16,
                           ),
                           SizedBox(width: 8), // Jarak antara ikon dan teks
-                          Text(
-                            "17 November 2023 - 31 November 2023",
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          FutureBuilder<Map<String, dynamic>>(
+                            future: _event,
+                            builder: (context, snapshotEvent) {
+                              if (snapshotEvent.connectionState ==
+                                  ConnectionState.waiting) {
+                                return CircularProgressIndicator();
+                              } else if (snapshotEvent.hasError) {
+                                return Text("Error: ${snapshotEvent.error}");
+                              } else {
+                                final event = snapshotEvent.data;
+                                final startDate = event != null
+                                    ? event['start']
+                                    : "Loading...";
+                                final endDate =
+                                    event != null ? event['end'] : "Loading...";
+
+                                return Text(
+                                  "$startDate to $endDate",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                );
+                              }
+                            },
                           ),
                         ],
                       )
@@ -274,9 +308,27 @@ class _EventPageState extends State<DetailEventPage> {
                       ],
                     ),
                     padding: EdgeInsets.symmetric(vertical: 2, horizontal: 16),
-                    child: Text(
-                      "Seminar",
-                      style: TextStyle(color: Colors.white),
+                    child: FutureBuilder<Map<String, dynamic>>(
+                      future: _event,
+                      builder: (context, snapshotEvent) {
+                        if (snapshotEvent.connectionState ==
+                            ConnectionState.waiting) {
+                          return Text("Loading...");
+                        } else if (snapshotEvent.hasError) {
+                          return Text("Error: ${snapshotEvent.error}");
+                        } else {
+                          final event = snapshotEvent.data;
+
+                          return Text(
+                            event != null
+                                ? (event['nama']?.toString() ?? "Loading...")
+                                : "Loading...",
+                            style: TextStyle(
+                              color: Colors.white,
+                            ),
+                          );
+                        }
+                      },
                     ),
                   ),
                   SizedBox(
@@ -408,7 +460,7 @@ class _EventPageState extends State<DetailEventPage> {
                                         color: Colors.grey[600],
                                         fontWeight: FontWeight.w500)),
                                 FutureBuilder<Map<String, dynamic>>(
-                                  future: _eventDetails,
+                                  future: _event,
                                   builder: (context, snapshotEventDetails) {
                                     if (snapshotEventDetails.connectionState ==
                                         ConnectionState.waiting) {
@@ -425,10 +477,12 @@ class _EventPageState extends State<DetailEventPage> {
                                       final alamat = eventDetails != null
                                           ? eventDetails['alamat'] as String?
                                           : null;
-
+                                      final lokasi = eventDetails != null
+                                          ? eventDetails['lokasi'] as String?
+                                          : null;
                                       return Text(
                                         alamat != null
-                                            ? alamat
+                                            ? "$alamat($lokasi)"
                                             : "Alamat not available",
                                         overflow: TextOverflow.ellipsis,
                                         maxLines: 2,
@@ -457,9 +511,15 @@ class _EventPageState extends State<DetailEventPage> {
                             ),
                             onMapIsReady: (ready) async {
                               if (ready) {
-                                await Future.delayed(const Duration(seconds: 1),
-                                    () async {
-                                  await _mapController.currentLocation();
+                                await _fetchEvent().then((event) {
+                                  if (event != null) {
+                                    final latitude = event['latitude']
+                                        .toDouble(); // Assuming the latitude is in 'latitude' field of the event data
+                                    final longitude = event['longitude']
+                                        .toDouble(); // Assuming the longitude is in 'longitude' field of the event data
+
+                                    _updateMapPosition(latitude, longitude);
+                                  }
                                 });
                               }
                             },
@@ -511,7 +571,7 @@ class _EventPageState extends State<DetailEventPage> {
                                   elevation: 8,
                                 ),
                                 child: Text(
-                                  "Register ",
+                                  "Register",
                                   style: TextStyle(
                                     color: Colors.purple[700],
                                     fontWeight: FontWeight.w600,
@@ -531,49 +591,27 @@ class _EventPageState extends State<DetailEventPage> {
     );
   }
 
-  Future<String> fetchUserEmail(int UserID) async {
-    final response = await http.post(
-      Uri.parse('http://$ipAddress:8000/api/profile/user'),
-      body: {
-        'id': UserID.toString(),
-      },
-    );
-
-    if (response.statusCode == 200) {
-      final responseData = json.decode(response.body);
-      return responseData['data']
-          ['email']; // Assuming the email is located at data.email
-    } else {
-      throw Exception(
-          'Failed to fetch user email. Error code: ${response.statusCode}');
-    }
-  }
-
   Future<void> registerParticipant() async {
     try {
       // Extract the required data from profileData
-      int idEvent = widget.idEvent;
-      int idUser = widget.profileData['ID_User'];
+      //print(widget.profileData);
+      int idEvent = widget.idEvent ?? 0; // Default to 0 if null
+      int idUser = widget.profileData['ID_User'] ?? 0; // Default to 0 if null
+
       String participantName = widget.profileData['nama_lengkap'];
-      String participantPhone = widget.profileData['no_telp'];
-      String participantAddress = widget.profileData['alamat'];
-      String participantProvince = widget.profileData['provinsi'];
-      String participantCity = widget.profileData['kota'];
 
-      // Fetch the user email
-      String participantEmail = await fetchUserEmail(idUser);
-
+      String participantEmail = widget.profileData['email'];
+      print('ID Event: $idEvent');
+      print('ID User: $idUser');
+      print('Participant Name: $participantName');
+      print('Participant Email: $participantEmail');
       // Make the API call
       final response = await http.post(
         Uri.parse('http://$ipAddress:8000/api/peserta/save'),
         body: {
           'ID_event': idEvent.toString(),
-          'ID_user': idUser.toString(),
+          'ID_User': idUser.toString(),
           'nama': participantName,
-          'no_telp': participantPhone,
-          'alamat': participantAddress,
-          'provinsi': participantProvince,
-          'kota': participantCity,
           'email': participantEmail,
           'gender': 'L', // Adjust according to your data
           'type': 'normal', // Adjust according to your data

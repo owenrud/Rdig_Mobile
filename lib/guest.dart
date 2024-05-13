@@ -42,15 +42,17 @@ class _GuestPageState extends State<GuestPage> {
 
       if (response1.statusCode == 200) {
         final pesertaData = json.decode(response1.body);
-
+        print("Peserta Data:$pesertaData");
         if (pesertaData['is_success'] == true &&
             pesertaData.containsKey('data')) {
           final List<int> eventIdList = pesertaData['data']
               .map<int>((peserta) => peserta['ID_event'] as int)
               .toList();
-
+          final List<int> IDPesertaList = pesertaData['data']
+              .map<int>((peserta) => peserta['ID_peserta'] as int)
+              .toList();
           print('Event ID List: $eventIdList');
-
+          //print('Peserta ID List: $IDPesertaList');
           // Fetch event details using the second API
           final List<Future<List<Map<String, dynamic>>>> eventDetailsFutures =
               eventIdList.map((eventId) => fetchEventDetails(eventId)).toList();
@@ -90,8 +92,7 @@ class _GuestPageState extends State<GuestPage> {
 
       if (response2.statusCode == 200) {
         final eventData = json.decode(response2.body);
-        print(
-            'Event Details Response for ID $eventId: $eventData'); // Print the API response
+        //print( 'Event Details Response for ID $eventId: $eventData'); // Print the API response
 
         return List<Map<String, dynamic>>.from(eventData['data']);
       } else {
@@ -104,7 +105,7 @@ class _GuestPageState extends State<GuestPage> {
   }
 
   Widget buildEventCard(Map<String, dynamic> eventData) {
-    print('Building Event Card for: $eventData'); // Print event data
+    //print('Building Event Card for: $eventData'); // Print event data
     return Padding(
       padding: const EdgeInsets.all(20.0),
       child: GestureDetector(
@@ -298,98 +299,109 @@ class _GuestPageState extends State<GuestPage> {
           ),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            SizedBox(
-              height: 20,
-            ),
-            Card(
-              elevation: 5,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30)),
-              child: ElevatedButton(
-                onPressed: () {
-                  fetchDataAndNavigate();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  padding: EdgeInsets.all(16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Fetch the latest data
+          setState(() {
+            profileData = fetchProfileData(widget.userId);
+            eventList = fetchEventList(widget.userId);
+          });
+        },
+        child: SingleChildScrollView(
+          physics: AlwaysScrollableScrollPhysics(),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              SizedBox(
+                height: 20,
+              ),
+              Card(
+                elevation: 5,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30)),
+                child: ElevatedButton(
+                  onPressed: () {
+                    fetchDataAndNavigate();
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    padding: EdgeInsets.all(16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15),
+                    ),
                   ),
-                ),
-                child: Padding(
-                  padding: EdgeInsets.only(top: 8),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.search,
-                        color: Colors.black,
-                      ),
-                      SizedBox(width: 8),
-                      Text(
-                        'Cari Event...',
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey,
+                  child: Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.search,
+                          color: Colors.black,
                         ),
-                      ),
-                    ],
+                        SizedBox(width: 8),
+                        Text(
+                          'Cari Event...',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            SizedBox(
-              height: 20,
-            ),
-            Padding(
-              padding: EdgeInsets.only(left: 20.0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  "Eventmu",
-                  style: TextStyle(
-                    color: Colors.deepPurple[900],
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
+              SizedBox(
+                height: 20,
+              ),
+              Padding(
+                padding: EdgeInsets.only(left: 20.0),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    "Eventmu",
+                    style: TextStyle(
+                      color: Colors.deepPurple[900],
+                      fontSize: 16,
+                      fontWeight: FontWeight.w900,
+                    ),
                   ),
                 ),
               ),
-            ),
-            FutureBuilder<List<Map<String, dynamic>>>(
-              future: eventList,
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                    child: CircularProgressIndicator(),
-                  );
-                } else if (snapshot.hasError) {
-                  return Center(
-                    child: Text("Error: ${snapshot.error}"),
-                  );
-                } else {
-                  final List<Map<String, dynamic>> eventData =
-                      snapshot.data ?? [];
-
-                  if (eventData.isNotEmpty) {
-                    return ListView.builder(
-                      shrinkWrap: true, // Add this line
-                      physics: NeverScrollableScrollPhysics(), // Add this line
-                      itemCount: eventData.length,
-                      itemBuilder: (context, index) {
-                        final event = eventData[index];
-                        return buildEventCard(event);
-                      },
+              FutureBuilder<List<Map<String, dynamic>>>(
+                future: eventList,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(
+                      child: CircularProgressIndicator(),
+                    );
+                  } else if (snapshot.hasError) {
+                    return Center(
+                      child: Text("Error: ${snapshot.error}"),
                     );
                   } else {
-                    return Text('No events available');
+                    final List<Map<String, dynamic>> eventData =
+                        snapshot.data ?? [];
+
+                    if (eventData.isNotEmpty) {
+                      return ListView.builder(
+                        shrinkWrap: true, // Add this line
+                        physics:
+                            NeverScrollableScrollPhysics(), // Add this line
+                        itemCount: eventData.length,
+                        itemBuilder: (context, index) {
+                          final event = eventData[index];
+                          return buildEventCard(event);
+                        },
+                      );
+                    } else {
+                      return Text('No events available');
+                    }
                   }
-                }
-              },
-            ),
-          ],
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

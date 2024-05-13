@@ -3,13 +3,15 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:main/qr_code.dart';
-
+import 'package:path_provider/path_provider.dart';
+import 'dart:io';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter_osm_plugin/flutter_osm_plugin.dart';
 import 'package:main/global_variable.dart';
 
 class UserEventPage extends StatefulWidget {
   final int idEvent;
+
   final Map<String, dynamic> profileData;
 
   const UserEventPage(
@@ -21,46 +23,49 @@ class UserEventPage extends StatefulWidget {
 }
 
 class _UserEventPageState extends State<UserEventPage> {
-  late Future<Map<String, dynamic>> _eventDetails = Future.value({});
   late Future<Map<String, dynamic>> _event = Future.value({});
-  late Future<Map<String, dynamic>> _userProfile = Future.value({});
+  Future<Map<String, dynamic>>? _userProfile;
+
   String qrData = "";
   final _mapController = MapController(
       initPosition: GeoPoint(
           latitude: -6.175398530482024,
           longitude: 106.82715682783265)); // San Francisco coordinates
   int UserID = 0;
+  int EventID = 0;
   @override
   void initState() {
     super.initState();
     UserID = widget.profileData['ID_User'];
+    EventID = widget.idEvent;
     _event = _fetchEvent();
-    _eventDetails = _fetchEventDetails();
     _userProfile = _fetchUserProfile();
     _loadUserData();
-    print(UserID);
+    print("Test ID Event:${widget.idEvent}");
+    print("User ID:$UserID");
+    print("ISI EVENT :$_event");
   }
 
-  Future<Map<String, dynamic>> fetchUserData(String userId) async {
+  Future<Map<String, dynamic>> fetchUserData(
+      String userId, String EventId) async {
     final Uri apiUrl =
-        Uri.parse('http://$ipAddress:8000/api/peserta/show/user');
+        Uri.parse('http://$ipAddress:8000/api/peserta/show/guest');
 
     try {
       final http.Response response = await http.post(
         apiUrl,
-        body: {'ID_user': userId},
+        body: {'ID_user': userId, 'ID_event': EventId},
       );
-
+      print("Test Fetch User:${response.body}");
       if (response.statusCode == 200) {
         final Map<String, dynamic> responseData = json.decode(response.body);
 
         if (responseData['is_success'] == true) {
-          final List<dynamic> userDataList = responseData['data'];
+          final Map<String, dynamic> userData = responseData['data'];
 
-          if (userDataList.isNotEmpty &&
-              userDataList[0] is Map<String, dynamic>) {
-            // Convert the List<dynamic> to List<Map<String, dynamic>> before returning
-            return List<Map<String, dynamic>>.from(userDataList)[0];
+          if (userData.isNotEmpty && userData is Map<String, dynamic>) {
+            // Return the user data directly
+            return userData;
           } else {
             throw Exception('No valid user data found in the response');
           }
@@ -77,12 +82,20 @@ class _UserEventPageState extends State<UserEventPage> {
     }
   }
 
+  void _updateMapPosition(double latitude, double longitude) {
+    final updatedPosition = GeoPoint(latitude: latitude, longitude: longitude);
+    _mapController.goToLocation(updatedPosition);
+  }
+
   Future<void> _loadUserData() async {
     try {
       if (UserID != null) {
-        Map<String, dynamic> userData = await fetchUserData(UserID.toString());
+        Map<String, dynamic> userData =
+            await fetchUserData(UserID.toString(), EventID.toString());
         print(userData);
         String jsonString = json.encode(userData);
+        int idPeserta = userData['ID_peserta'];
+        print("ID Peserta: $idPeserta");
 
         setState(() {
           qrData = jsonString;
@@ -101,12 +114,12 @@ class _UserEventPageState extends State<UserEventPage> {
         Uri.parse("http://$ipAddress:8000/api/event/show"),
         body: {'ID_event': widget.idEvent.toString()},
       );
-
+      print("EVENT: ${response.body}");
       if (response.statusCode == 200) {
         final responseData = json.decode(response.body);
 
         if (responseData['is_success'] == true) {
-          return responseData['data'];
+          return responseData['data'][0];
         } else {
           throw Exception("API response indicates failure");
         }
@@ -115,30 +128,6 @@ class _UserEventPageState extends State<UserEventPage> {
       }
     } catch (error) {
       throw Exception("Error during event fetching: $error");
-    }
-  }
-
-  Future<Map<String, dynamic>> _fetchEventDetails() async {
-    try {
-      final eventId = (await _event)['ID_event'].toString();
-      final response = await http.post(
-        Uri.parse("http://$ipAddress:8000/api/event/detail/show"),
-        body: {'ID_event': eventId},
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = json.decode(response.body);
-
-        if (responseData['is_success'] == true) {
-          return responseData['data'];
-        } else {
-          throw Exception("API response indicates failure");
-        }
-      } else {
-        throw Exception("Failed to load event details");
-      }
-    } catch (error) {
-      throw Exception("Error during event details fetching: $error");
     }
   }
 
@@ -155,7 +144,11 @@ class _UserEventPageState extends State<UserEventPage> {
         final responseData = json.decode(response.body);
 
         if (responseData['is_success'] == true) {
-          return responseData['data'];
+          if (responseData['data'] is Map<String, dynamic>) {
+            return responseData['data'];
+          } else {
+            throw Exception("Data is not in the expected format");
+          }
         } else {
           throw Exception("API response indicates failure");
         }
@@ -163,6 +156,7 @@ class _UserEventPageState extends State<UserEventPage> {
         throw Exception("Failed to load user profile");
       }
     } catch (error) {
+      print("Error User: $error");
       throw Exception("Error during user profile fetching: $error");
     }
   }
@@ -298,13 +292,32 @@ class _UserEventPageState extends State<UserEventPage> {
                             size: 16,
                           ),
                           SizedBox(width: 8), // Jarak antara ikon dan teks
-                          Text(
-                            "17 November 2023 - 31 November 2023",
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          FutureBuilder<Map<String, dynamic>>(
+                            future: _event,
+                            builder: (context, snapshotEvent) {
+                              if (snapshotEvent.connectionState ==
+                                  ConnectionState.waiting) {
+                                return CircularProgressIndicator();
+                              } else if (snapshotEvent.hasError) {
+                                return Text("Error: ${snapshotEvent.error}");
+                              } else {
+                                final event = snapshotEvent.data;
+                                final startDate = event != null
+                                    ? event['start']
+                                    : "Loading...";
+                                final endDate =
+                                    event != null ? event['end'] : "Loading...";
+
+                                return Text(
+                                  "$startDate to $endDate",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                );
+                              }
+                            },
                           ),
                         ],
                       )
@@ -466,22 +479,21 @@ class _UserEventPageState extends State<UserEventPage> {
                                         color: Colors.grey[600],
                                         fontWeight: FontWeight.w500)),
                                 FutureBuilder<Map<String, dynamic>>(
-                                  future: _eventDetails,
-                                  builder: (context, snapshotEventDetails) {
-                                    if (snapshotEventDetails.connectionState ==
+                                  future: _event,
+                                  builder: (context, snapshotEvent) {
+                                    if (snapshotEvent.connectionState ==
                                         ConnectionState.waiting) {
                                       return Text("Loading...");
-                                    } else if (snapshotEventDetails.hasError) {
-                                      print(
-                                          "Error: ${snapshotEventDetails.error}");
+                                    } else if (snapshotEvent.hasError) {
+                                      print("Error: ${snapshotEvent.error}");
                                       return Text(
-                                          "Error: ${snapshotEventDetails.error}");
+                                          "Error: ${snapshotEvent.error}");
                                     } else {
-                                      final eventDetails = snapshotEventDetails
-                                          .data as Map<String, dynamic>?;
+                                      final event = snapshotEvent.data
+                                          as Map<String, dynamic>?;
 
-                                      final alamat = eventDetails != null
-                                          ? eventDetails['alamat'] as String?
+                                      final alamat = event != null
+                                          ? event['alamat'] as String?
                                           : null;
 
                                       return Text(
@@ -515,9 +527,15 @@ class _UserEventPageState extends State<UserEventPage> {
                             ),
                             onMapIsReady: (ready) async {
                               if (ready) {
-                                await Future.delayed(const Duration(seconds: 1),
-                                    () async {
-                                  await _mapController.currentLocation();
+                                await _fetchEvent().then((event) {
+                                  if (event != null) {
+                                    final latitude = event['latitude']
+                                        .toDouble(); // Assuming the latitude is in 'latitude' field of the event data
+                                    final longitude = event['longitude']
+                                        .toDouble(); // Assuming the longitude is in 'longitude' field of the event data
+
+                                    _updateMapPosition(latitude, longitude);
+                                  }
                                 });
                               }
                             },
@@ -584,7 +602,54 @@ class _UserEventPageState extends State<UserEventPage> {
                                   ),
                                 ),
                               ),
-                            )
+                            ),
+                            FutureBuilder<Map<String, dynamic>>(
+                              future: _event,
+                              builder: (context, snapshotEvent) {
+                                if (snapshotEvent.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return CircularProgressIndicator();
+                                } else if (snapshotEvent.hasError) {
+                                  return Text("Error: ${snapshotEvent.error}");
+                                } else {
+                                  final event = snapshotEvent.data;
+
+                                  // Store the status in a variable for easier access
+                                  final eventStatus =
+                                      event != null ? event['status'] : null;
+
+                                  // Conditionally show the "Sertifikat" button based on eventStatus
+                                  final showSertifikatButton = eventStatus == 0;
+                                  print(
+                                      "Test Kondisi Sertifikat button: $showSertifikatButton");
+                                  print("EVENT STATUS: $eventStatus");
+
+                                  return Column(
+                                    children: [
+                                      // Container for the "Sertifikat" button
+                                      if (showSertifikatButton)
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            _DownloadCertificate();
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            side: BorderSide(
+                                                color: Colors.deepPurple),
+                                            elevation: 8,
+                                          ),
+                                          child: Text(
+                                            "Sertifikat",
+                                            style: TextStyle(
+                                              color: Colors.purple[700],
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  );
+                                }
+                              },
+                            ),
                           ],
                         ),
                       ],
@@ -595,5 +660,55 @@ class _UserEventPageState extends State<UserEventPage> {
         ),
       ),
     );
+  }
+
+  void _DownloadCertificate() async {
+    try {
+      // Make the POST request to download the PDF
+      var response = await http.post(
+        Uri.parse('http://$ipAddress:8000/api/test/postpdf/export'),
+        body: jsonEncode({'ID_user': UserID, 'ID_event': widget.idEvent}),
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+
+      // Check if the request was successful (status code 200)
+      if (response.statusCode == 200) {
+        // Get the directory where the PDF file will be saved
+        final Directory? downloadsDir = await getDownloadsDirectory();
+
+        if (downloadsDir != null) {
+          String filePath = '${downloadsDir.path}/certificate.pdf';
+
+          // Write the response body (PDF content) to the file
+          File file = File(filePath);
+          await file.writeAsBytes(response.bodyBytes);
+
+          print("File saved to: $filePath");
+
+          // Open the locally saved PDF file
+          // You can implement the logic to open the PDF file here
+        } else {
+          print("Error: Downloads directory is null");
+        }
+      } else {
+        // Handle the case where the request was not successful
+        print(
+            'Failed to download certificate. Status code: ${response.statusCode}');
+      }
+    } catch (error) {
+      // Handle any errors that occur during the request
+      print("Error downloading certificate: $error");
+    }
+  }
+
+  String _formatDate(String? dateString) {
+    if (dateString != null) {
+      final DateTime dateTime = DateTime.parse(dateString);
+      final DateFormat formatter = DateFormat('dd-MMM-yy');
+      return formatter.format(dateTime);
+    }
+    return '';
   }
 }
