@@ -407,7 +407,11 @@ class _EventPageState extends State<EventPage> {
                             ),
                           ),
                           Text("${event['nama_event'] ?? 'Unknown'}"),
-                          Text("${event['deskripsi'] ?? 'Unknown'}"),
+                          Text(
+                            "${event['deskripsi'] ?? 'Unknown'}",
+                            overflow: TextOverflow.ellipsis,
+                            maxLines: 1,
+                          ),
                         ],
                       ),
                     ),

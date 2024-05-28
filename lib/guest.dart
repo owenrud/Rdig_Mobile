@@ -138,21 +138,15 @@ class _GuestPageState extends State<GuestPage> {
                         BorderRadius.vertical(top: Radius.circular(30)),
                   ),
                   height: 80,
-                  child: Center(
-                    child: Text(
-                      eventData['nama_event'] ?? 'No Event Name',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
                 ),
               ),
               ListTile(
                 title: Text(eventData['nama_event'] ?? 'No Event Name'),
-                subtitle: Text(eventData['desc_event'] ?? 'No Description'),
+                subtitle: Text(
+                  eventData['desc_event'] ?? 'No Description',
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                ),
               ),
             ],
           ),

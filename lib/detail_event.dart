@@ -210,34 +210,40 @@ class _EventPageState extends State<DetailEventPage> {
                     ],
                   ),
                   SizedBox(height: 15),
-                  Row(children: [
-                    Padding(padding: EdgeInsets.symmetric(horizontal: 10)),
-                    FutureBuilder<Map<String, dynamic>>(
-                      future: _event,
-                      builder: (context, snapshotEvent) {
-                        if (snapshotEvent.connectionState ==
-                            ConnectionState.waiting) {
-                          return Text("Loading...");
-                        } else if (snapshotEvent.hasError) {
-                          return Text("Error: ${snapshotEvent.error}");
-                        } else {
-                          final event = snapshotEvent.data;
+                  Row(
+                    children: [
+                      Padding(padding: EdgeInsets.symmetric(horizontal: 10)),
+                      Expanded(
+                        child: FutureBuilder<Map<String, dynamic>>(
+                          future: _event,
+                          builder: (context, snapshotEvent) {
+                            if (snapshotEvent.connectionState ==
+                                ConnectionState.waiting) {
+                              return Text("Loading...");
+                            } else if (snapshotEvent.hasError) {
+                              return Text("Error: ${snapshotEvent.error}");
+                            } else {
+                              final event = snapshotEvent.data;
 
-                          return Text(
-                            event != null
-                                ? (event['nama_event']?.toString() ??
-                                    "Loading...")
-                                : "Loading...",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ]),
+                              return Text(
+                                event != null
+                                    ? (event['nama_event']?.toString() ??
+                                        "Loading...")
+                                    : "Loading...",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                   SizedBox(
                     height: 10,
                   ),
@@ -440,6 +446,8 @@ class _EventPageState extends State<DetailEventPage> {
                                         color: Colors.black,
                                         fontSize: 18,
                                       ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
                                     );
                                   }
                                 },
@@ -453,42 +461,52 @@ class _EventPageState extends State<DetailEventPage> {
                         Row(
                           children: [
                             Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text("Lokasi",
-                                    style: TextStyle(
-                                        fontSize: 18,
-                                        color: Colors.grey[600],
-                                        fontWeight: FontWeight.w500)),
-                                FutureBuilder<Map<String, dynamic>>(
-                                  future: _event,
-                                  builder: (context, snapshotEventDetails) {
-                                    if (snapshotEventDetails.connectionState ==
-                                        ConnectionState.waiting) {
-                                      return Text("Loading...");
-                                    } else if (snapshotEventDetails.hasError) {
-                                      print(
-                                          "Error: ${snapshotEventDetails.error}");
-                                      return Text(
-                                          "Error: ${snapshotEventDetails.error}");
-                                    } else {
-                                      final eventDetails = snapshotEventDetails
-                                          .data as Map<String, dynamic>?;
+                                Text(
+                                  "Lokasi",
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    color: Colors.grey[600],
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                Container(
+                                  width: 200, // Set an appropriate width here
+                                  child: FutureBuilder<Map<String, dynamic>>(
+                                    future: _event,
+                                    builder: (context, snapshotEventDetails) {
+                                      if (snapshotEventDetails
+                                              .connectionState ==
+                                          ConnectionState.waiting) {
+                                        return Text("Loading...");
+                                      } else if (snapshotEventDetails
+                                          .hasError) {
+                                        print(
+                                            "Error: ${snapshotEventDetails.error}");
+                                        return Text(
+                                            "Error: ${snapshotEventDetails.error}");
+                                      } else {
+                                        final eventDetails =
+                                            snapshotEventDetails.data
+                                                as Map<String, dynamic>?;
 
-                                      final alamat = eventDetails != null
-                                          ? eventDetails['alamat'] as String?
-                                          : null;
-                                      final lokasi = eventDetails != null
-                                          ? eventDetails['lokasi'] as String?
-                                          : null;
-                                      return Text(
-                                        alamat != null
-                                            ? "$alamat($lokasi)"
-                                            : "Alamat not available",
-                                        overflow: TextOverflow.ellipsis,
-                                        maxLines: 2,
-                                      );
-                                    }
-                                  },
+                                        final alamat = eventDetails != null
+                                            ? eventDetails['alamat'] as String?
+                                            : null;
+                                        final lokasi = eventDetails != null
+                                            ? eventDetails['lokasi'] as String?
+                                            : null;
+                                        return Text(
+                                          alamat != null
+                                              ? "$alamat($lokasi)"
+                                              : "Alamat not available",
+                                          overflow: TextOverflow.ellipsis,
+                                          maxLines: 1,
+                                        );
+                                      }
+                                    },
+                                  ),
                                 ),
                               ],
                             ),

@@ -27,6 +27,7 @@ class _UserEventPageState extends State<UserEventPage> {
   Future<Map<String, dynamic>>? _userProfile;
 
   String qrData = "";
+  int StatusAbsen = 0;
   final _mapController = MapController(
       initPosition: GeoPoint(
           latitude: -6.175398530482024,
@@ -94,11 +95,12 @@ class _UserEventPageState extends State<UserEventPage> {
             await fetchUserData(UserID.toString(), EventID.toString());
         print(userData);
         String jsonString = json.encode(userData);
-        int idPeserta = userData['ID_peserta'];
-        print("ID Peserta: $idPeserta");
+        int status = userData['status_absen'];
+        print("status absen dari Load User Data: $status");
 
         setState(() {
           qrData = jsonString;
+          StatusAbsen = status;
         });
       } else {
         print('Error loading user data: UserID is null');
@@ -247,34 +249,40 @@ class _UserEventPageState extends State<UserEventPage> {
                     ],
                   ),
                   SizedBox(height: 15),
-                  Row(children: [
-                    Padding(padding: EdgeInsets.symmetric(horizontal: 10)),
-                    FutureBuilder<Map<String, dynamic>>(
-                      future: _event,
-                      builder: (context, snapshotEvent) {
-                        if (snapshotEvent.connectionState ==
-                            ConnectionState.waiting) {
-                          return Text("Loading...");
-                        } else if (snapshotEvent.hasError) {
-                          return Text("Error: ${snapshotEvent.error}");
-                        } else {
-                          final event = snapshotEvent.data;
+                  Row(
+                    children: [
+                      Padding(padding: EdgeInsets.symmetric(horizontal: 10)),
+                      Expanded(
+                        child: FutureBuilder<Map<String, dynamic>>(
+                          future: _event,
+                          builder: (context, snapshotEvent) {
+                            if (snapshotEvent.connectionState ==
+                                ConnectionState.waiting) {
+                              return Text("Loading...");
+                            } else if (snapshotEvent.hasError) {
+                              return Text("Error: ${snapshotEvent.error}");
+                            } else {
+                              final event = snapshotEvent.data;
 
-                          return Text(
-                            event != null
-                                ? (event['nama_event']?.toString() ??
-                                    "Loading...")
-                                : "Loading...",
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          );
-                        }
-                      },
-                    ),
-                  ]),
+                              return Text(
+                                event != null
+                                    ? (event['nama_event']?.toString() ??
+                                        "Loading...")
+                                    : "Loading...",
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                                maxLines: 1,
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
                   SizedBox(
                     height: 10,
                   ),
@@ -459,6 +467,8 @@ class _UserEventPageState extends State<UserEventPage> {
                                         color: Colors.black,
                                         fontSize: 18,
                                       ),
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: 1,
                                     );
                                   }
                                 },
@@ -619,10 +629,12 @@ class _UserEventPageState extends State<UserEventPage> {
                                       event != null ? event['status'] : null;
 
                                   // Conditionally show the "Sertifikat" button based on eventStatus
-                                  final showSertifikatButton = eventStatus == 0;
+                                  final showSertifikatButton =
+                                      eventStatus == 0 && StatusAbsen != 0;
                                   print(
                                       "Test Kondisi Sertifikat button: $showSertifikatButton");
                                   print("EVENT STATUS: $eventStatus");
+                                  print("Status ABSEN : $StatusAbsen");
 
                                   return Column(
                                     children: [
